@@ -41,7 +41,23 @@ func main() {
 	}
 
 	kubeconfigPath, err, clusterName := kubeconfig.GetKubeConfig()
-	toolName := kubeconfig.PromptUser("Select tool:", []string{"kubectl", "k9s", "octant"})
+
+	availableTools := []string{"kubectl"}
+
+	if tools.ShowK9sOption() {
+		availableTools = append(availableTools, "k9s")
+	} else {
+		fmt.Println("k9s is not installed. You can install it with the --tools flag, e.g. ./bin/go-cluster-support --tools")
+	}
+
+	if tools.ShowOctantOption() {
+		availableTools = append(availableTools, "octant")
+	} else {
+		fmt.Println("octant is not installed. You can install it with the --tools flag, e.g. ./bin/go-cluster-support --tools")
+	}
+
+	toolName := kubeconfig.PromptUser("Select tool:", availableTools)
+
 	err = kubeconfig.ConnectToCluster(toolName, kubeconfigPath, clusterName)
 	if err != nil {
 		fmt.Println("Error connecting to cluster:", err)

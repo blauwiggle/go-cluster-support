@@ -26,6 +26,24 @@ func CheckPrerequisites() error {
 	return nil
 }
 
+func ShowOctantOption() bool {
+	cmd := exec.Command("which", "octant")
+	err := cmd.Run()
+	if err != nil {
+		return false
+	}
+	return true
+}
+
+func ShowK9sOption() bool {
+	cmd := exec.Command("which", "k9s")
+	err := cmd.Run()
+	if err != nil {
+		return false
+	}
+	return true
+}
+
 // GetToolName returns the name of the tool selected by the user
 func GetToolName() string {
 	toolName := *flag.String("tool", "", "Specify the tool you want to use")
