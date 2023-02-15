@@ -20,7 +20,7 @@ func GetToolName() string {
 		return toolName
 	}
 
-	options := []string{"kubectl", "k9s", "octant"}
+	options := []string{"kubectl", "k9s", "octant", "Azure/kubelogin/kubelogin"}
 	fmt.Println("Choose a tool:")
 	for i, option := range options {
 		fmt.Printf("%d. %s\n", i+1, option)
@@ -48,7 +48,9 @@ func InstallTool(toolName string) {
 	case "darwin":
 		cmd = exec.Command("brew", "install", toolName)
 	case "linux":
-		cmd = exec.Command("sudo", "apt", "install", "-y", toolName) // todo not sure if this works
+		cmd = exec.Command("sudo", "apt", "install", "-y", toolName)
+	case "windows":
+		cmd = exec.Command("powershell", "choco", "install", "-y", toolName)
 	default:
 		fmt.Println("Unsupported operating system")
 		os.Exit(1)
