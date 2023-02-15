@@ -1,0 +1,49 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  APP_NAME: go-cluster-support
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Setup Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: '1.17'
+
+      - name: Build app
+        run: go build -o ${{ env.APP_NAME }} ./cmd/${{ env.APP_NAME }}
+
+      - name: Create release
+        id: create_release
+        uses: actions/create-release@v1.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ format('{0}', github.run_number) }}
+          release_name: Release ${{ format('{0}', github.run_number) }}
+          body: |
+            Automated release from build pipeline.
+          draft: false
+          prerelease: false
+
+      - name: Upload asset
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./${{ env.APP_NAME }}
+          asset_name: ${{ env.APP_NAME }}-${{ format('{0,date,20060102}', github.run_started_at) }}
+          asset_content_type: application/octet-stream
