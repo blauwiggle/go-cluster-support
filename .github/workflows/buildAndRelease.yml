@@ -22,7 +22,7 @@ jobs:
           go-version: '1.17'
 
       - name: Build app
-        run: go build -o ${{ env.APP_NAME }} ./cmd/${{ env.APP_NAME }}
+        run: go build -o ${{ env.APP_NAME }}
 
       - name: Create release
         id: create_release
