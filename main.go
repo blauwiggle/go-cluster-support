@@ -13,6 +13,14 @@ import (
 var toolsFlag bool
 
 func init() {
+
+	err := tools.CheckPrerequisites()
+	if err != nil {
+		fmt.Println(err)
+		toolName := tools.GetToolName()
+		tools.InstallTool(toolName)
+	}
+
 	flag.BoolVar(&toolsFlag, "tools", false, "Use this flag to install tools")
 	flag.Parse()
 }

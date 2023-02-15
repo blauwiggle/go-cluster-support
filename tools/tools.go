@@ -11,6 +11,22 @@ import (
 	"strings"
 )
 
+// CheckPrerequisites checks whether kubectl and kubelogin are installed and
+// notifies the user if they are not.
+func CheckPrerequisites() error {
+	requiredTools := []string{"kubectl", "kubelogin"}
+	for _, tool := range requiredTools {
+		cmd := exec.Command("which", tool)
+		err := cmd.Run()
+		if err != nil {
+			return fmt.Errorf("%s is not installed. Please install it before continuing", tool)
+		}
+	}
+
+	fmt.Println("All required tools are installed.")
+	return nil
+}
+
 // GetToolName returns the name of the tool selected by the user
 func GetToolName() string {
 	toolName := *flag.String("tool", "", "Specify the tool you want to use")
