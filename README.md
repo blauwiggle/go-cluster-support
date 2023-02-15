@@ -53,7 +53,7 @@ go build -o bin/go-cluster-support
 
 ## add alias
 
-Add this to your config file (e.g. ~/.bashrc or ~/.zshrc) depending on your shell.
+Add this to your config file (e.g. `~/.bashrc` or `~/.zshrc`) depending on your shell.
 
 ```bash
 alias cats=<path-to-binary>/go-cluster-support
