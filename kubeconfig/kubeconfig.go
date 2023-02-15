@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"runtime"
 	"strconv"
 	"strings"
 )
@@ -50,11 +51,32 @@ func GetKubeConfig() (string, error, string) {
 	color := PromptUser("Select color:", []string{"blue", "green"})
 	resourceGroup := fmt.Sprintf("rg-cats-%s-aks-%s", stage, color)
 	clusterName := fmt.Sprintf("aks-cats-westeurope-%s-%s", stage, color)
-	kubeConfig := fmt.Sprintf("%s/.kube/cats-%s-%s.yml", os.Getenv("HOME"), stage, color)
+	kubeConfig, err := defineKubeConfig(stage, color) //fmt.Sprintf("%s/.kube/cats-%s-%s.yml", os.Getenv("HOME"), stage, color)
 	cmd := fmt.Sprintf("az aks get-credentials --resource-group %s --name %s --file %s", resourceGroup, clusterName, kubeConfig)
 	fmt.Println("Executing command:", cmd)
 
 	return kubeConfig, nil, clusterName
+}
+
+func defineKubeConfig(stage string, color string) (string, error) {
+	var kubeConfigPath string
+	switch runtime.GOOS {
+	case "darwin":
+		kubeConfigPath = fmt.Sprintf("%s/.kube/cats-%s-%s.yml", os.Getenv("HOME"), stage, color)
+	case "linux":
+		kubeConfigPath = fmt.Sprintf("%s/.kube/cats-%s-%s.yml", os.Getenv("HOME"), stage, color)
+	case "windows":
+		kubeConfigPath = fmt.Sprintf("%s\\.kube\\cats-%s-%s.yml", os.Getenv("USERPROFILE"), stage, color)
+	default:
+		return "", fmt.Errorf("unsupported operating system")
+	}
+
+	err := os.Setenv("KUBECONFIG", kubeConfigPath)
+	if err != nil {
+		return "", err
+	}
+
+	return kubeConfigPath, nil
 }
 
 func selectStage() (string, string) {
@@ -159,6 +181,12 @@ func ConnectToCluster(toolName string, kubeconfigPath string, clusterName string
 func SetContext(context string, kubeconfigPath string) error {
 	cmdArgs := []string{"config", "use-context", context}
 	if kubeconfigPath != "" {
+
+		err := os.Setenv("KUBECONFIG", kubeconfigPath)
+		if err != nil {
+			return err
+		}
+
 		cmdArgs = append(cmdArgs, "--kubeconfig", kubeconfigPath)
 	}
 
