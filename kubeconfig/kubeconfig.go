@@ -24,7 +24,12 @@ func GetKubeConfig() (string, error, string) {
 
 		fmt.Println("You are not in the correct subscription. Please log in.")
 
-		err := login()
+		err := removeTokens()
+		if err != nil {
+			return "", err, ""
+		}
+
+		err = login()
 		if err != nil {
 			return "", err, ""
 		}
@@ -48,11 +53,7 @@ func GetKubeConfig() (string, error, string) {
 	kubeConfig := fmt.Sprintf("%s/.kube/cats-%s-%s.yml", os.Getenv("HOME"), stage, color)
 	cmd := fmt.Sprintf("az aks get-credentials --resource-group %s --name %s --file %s", resourceGroup, clusterName, kubeConfig)
 	fmt.Println("Executing command:", cmd)
-	//err = exec.Command("sh", "-c", cmd).Run()
-	//if err != nil {
-	//	fmt.Println("Error executing command:", err)
-	//	os.Exit(1)
-	//}
+
 	return kubeConfig, nil, clusterName
 }
 
@@ -87,6 +88,15 @@ func executeCommand(cmd *exec.Cmd) ([]byte, error) {
 	}
 
 	return output, nil
+}
+
+func removeTokens() error {
+	cmd := exec.Command("kubelogin", "remove-tokens")
+	output, err := executeCommand(cmd)
+	if err != nil {
+		return fmt.Errorf("error removing tokens: %v", string(output))
+	}
+	return nil
 }
 
 func login() error {
@@ -131,17 +141,6 @@ func PromptUser(message string, options []string) string {
 		}
 		return options[index-1]
 	}
-}
-
-func ConnectToCluster2(toolName string, kubeconfigPath string) error {
-	cmdArgs := "--kubeconfig " + kubeconfigPath
-	cmd := exec.Command(toolName, cmdArgs)
-	output, err := executeCommand(cmd)
-	if err != nil {
-		return fmt.Errorf("Error while executing '%s': %s\n%s", toolName, err, string(output))
-	}
-	fmt.Println("Output: ", string(output))
-	return nil
 }
 
 func ConnectToCluster(toolName string, kubeconfigPath string, clusterName string) error {
