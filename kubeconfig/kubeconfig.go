@@ -171,22 +171,23 @@ func ConnectToCluster(toolName string, kubeconfigPath string, clusterName string
 		return fmt.Errorf("failed to set context: %v", err)
 	}
 
-	cmd := exec.Command(toolName, "--kubeconfig", kubeconfigPath)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	// Check if the tool is kubectl
+	if toolName == "kubectl" {
+		fmt.Printf("Use 'kubectl' with parameter '--kubeconfig %s'\n\t kubectl --kubeconfig %s\n", kubeconfigPath, kubeconfigPath) // todo find solution to use kubectl os.setenv kubeconfig
+	} else {
+		cmd := exec.Command(toolName, "--kubeconfig", kubeconfigPath)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		return cmd.Run()
+	}
+
+	return nil
 }
 
 func SetContext(context string, kubeconfigPath string) error {
 	cmdArgs := []string{"config", "use-context", context}
 	if kubeconfigPath != "" {
-
-		err := os.Setenv("KUBECONFIG", kubeconfigPath)
-		if err != nil {
-			return err
-		}
-
 		cmdArgs = append(cmdArgs, "--kubeconfig", kubeconfigPath)
 	}
 

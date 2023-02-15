@@ -41,7 +41,7 @@ func main() {
 	}
 
 	kubeconfigPath, err, clusterName := kubeconfig.GetKubeConfig()
-	toolName := kubeconfig.PromptUser("Select tool:", []string{"octant", "k9s"})
+	toolName := kubeconfig.PromptUser("Select tool:", []string{"kubectl", "k9s", "octant"})
 	err = kubeconfig.ConnectToCluster(toolName, kubeconfigPath, clusterName)
 	if err != nil {
 		fmt.Println("Error connecting to cluster:", err)

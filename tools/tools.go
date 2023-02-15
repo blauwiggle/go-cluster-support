@@ -23,7 +23,6 @@ func CheckPrerequisites() error {
 		}
 	}
 
-	fmt.Println("All required tools are installed.")
 	return nil
 }
 
