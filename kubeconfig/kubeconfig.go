@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -183,7 +184,11 @@ func ConnectToCluster(toolName string, kubeconfigPath string, clusterName string
 
 	// Check if the tool is kubectl
 	if toolName == "kubectl" {
-		fmt.Printf("Use 'kubectl' with parameter '--kubeconfig %s'\n\t kubectl --kubeconfig %s\n", kubeconfigPath, kubeconfigPath) // todo find solution to use kubectl os.setenv kubeconfig
+		err := setKubeconfigEnvVar(kubeconfigPath)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Spawn a new shell or do e.g.: '$ source ~/.zshrc' to use the new kubeconfig\n")
 	} else {
 		cmd := exec.Command(toolName, "--kubeconfig", kubeconfigPath)
 		cmd.Stdin = os.Stdin
@@ -206,4 +211,55 @@ func SetContext(context string, kubeconfigPath string) error {
 	cmd.Stderr = os.Stderr
 
 	return cmd.Run()
+}
+
+func setKubeconfigEnvVar(kubeconfigPath string) error {
+	var shellConfigPath string
+
+	switch shell := filepath.Base(os.Getenv("SHELL")); shell {
+	case "bash":
+		shellConfigPath = filepath.Join(os.Getenv("HOME"), ".bashrc")
+	case "zsh":
+		shellConfigPath = filepath.Join(os.Getenv("HOME"), ".zshrc")
+	case "powershell":
+		shellConfigPath = filepath.Join(os.Getenv("HOME"), "Documents", "WindowsPowerShell", "Microsoft.PowerShell_profile.ps1")
+	default:
+		return fmt.Errorf("unsupported shell: %s", shell)
+	}
+
+	// Check if the shell config file exists
+	_, err := os.Stat(shellConfigPath)
+	if err != nil {
+		return fmt.Errorf("shell config file not found: %v", err)
+	}
+
+	// Open the shell config file
+	file, err := os.OpenFile(shellConfigPath, os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("error opening shell config file: %v", err)
+	}
+	defer func(file *os.File) {
+		_ = file.Close()
+	}(file)
+
+	// Read the file line by line and update the KUBECONFIG variable if it exists
+	scanner := bufio.NewScanner(file)
+	updated := false
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.Contains(line, "export KUBECONFIG=") {
+			updated = true
+			fmt.Println("Updating existing KUBECONFIG definition")
+			line = fmt.Sprintf("export KUBECONFIG=%s", kubeconfigPath)
+		}
+		_, _ = fmt.Fprintln(file, line)
+	}
+
+	// Add a new KUBECONFIG definition if it does not exist
+	if !updated {
+		fmt.Println("Adding new KUBECONFIG definition")
+		_, _ = fmt.Fprintf(file, "export KUBECONFIG=%s\n", kubeconfigPath)
+	}
+
+	return nil
 }
