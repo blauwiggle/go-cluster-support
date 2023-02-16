@@ -52,8 +52,14 @@ func GetKubeConfig() (string, error, string) {
 	resourceGroup := fmt.Sprintf("rg-cats-%s-aks-%s", stage, color)
 	clusterName := fmt.Sprintf("aks-cats-westeurope-%s-%s", stage, color)
 	kubeConfig, err := defineKubeConfig(stage, color) //fmt.Sprintf("%s/.kube/cats-%s-%s.yml", os.Getenv("HOME"), stage, color)
-	cmd := fmt.Sprintf("az aks get-credentials --resource-group %s --name %s --file %s", resourceGroup, clusterName, kubeConfig)
-	fmt.Println("Executing command:", cmd)
+
+	cmd := exec.Command("az", "aks", "get-credentials", "--resource-group", resourceGroup, "--name", clusterName, "--file", kubeConfig)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		fmt.Printf("Error executing command: %v", err)
+	} else {
+		fmt.Println("Command output: ", string(output))
+	}
 
 	return kubeConfig, nil, clusterName
 }
@@ -80,7 +86,7 @@ func defineKubeConfig(stage string, color string) (string, error) {
 }
 
 func selectStage() (string, string) {
-	stage := PromptUser("Select stage:", []string{"dev", "prod"})
+	stage := PromptUser("Select stage by number:", []string{"dev", "prod"})
 	stageCorrected := ""
 	switch strings.ToLower(stage) {
 	case "dev":
@@ -166,9 +172,13 @@ func PromptUser(message string, options []string) string {
 }
 
 func ConnectToCluster(toolName string, kubeconfigPath string, clusterName string) error {
+	if kubeconfigPath == "" {
+		return fmt.Errorf("kubeconfig path is empty")
+	}
+
 	// Set the context to the correct one
 	if err := SetContext(clusterName, kubeconfigPath); err != nil {
-		return fmt.Errorf("failed to set context: %v", err)
+		_ = fmt.Errorf("failed to set context: %v", err)
 	}
 
 	// Check if the tool is kubectl
