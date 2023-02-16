@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -52,8 +53,14 @@ func GetKubeConfig() (string, error, string) {
 	resourceGroup := fmt.Sprintf("rg-cats-%s-aks-%s", stage, color)
 	clusterName := fmt.Sprintf("aks-cats-westeurope-%s-%s", stage, color)
 	kubeConfig, err := defineKubeConfig(stage, color) //fmt.Sprintf("%s/.kube/cats-%s-%s.yml", os.Getenv("HOME"), stage, color)
-	cmd := fmt.Sprintf("az aks get-credentials --resource-group %s --name %s --file %s", resourceGroup, clusterName, kubeConfig)
-	fmt.Println("Executing command:", cmd)
+
+	cmd := exec.Command("az", "aks", "get-credentials", "--resource-group", resourceGroup, "--name", clusterName, "--file", kubeConfig)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		fmt.Printf("Error executing command: %v", err)
+	} else {
+		fmt.Println("Command output: ", string(output))
+	}
 
 	return kubeConfig, nil, clusterName
 }
@@ -80,7 +87,7 @@ func defineKubeConfig(stage string, color string) (string, error) {
 }
 
 func selectStage() (string, string) {
-	stage := PromptUser("Select stage:", []string{"dev", "prod"})
+	stage := PromptUser("Select stage by number:", []string{"dev", "prod"})
 	stageCorrected := ""
 	switch strings.ToLower(stage) {
 	case "dev":
@@ -166,14 +173,22 @@ func PromptUser(message string, options []string) string {
 }
 
 func ConnectToCluster(toolName string, kubeconfigPath string, clusterName string) error {
+	if kubeconfigPath == "" {
+		return fmt.Errorf("kubeconfig path is empty")
+	}
+
 	// Set the context to the correct one
 	if err := SetContext(clusterName, kubeconfigPath); err != nil {
-		return fmt.Errorf("failed to set context: %v", err)
+		_ = fmt.Errorf("failed to set context: %v", err)
 	}
 
 	// Check if the tool is kubectl
 	if toolName == "kubectl" {
-		fmt.Printf("Use 'kubectl' with parameter '--kubeconfig %s'\n\t kubectl --kubeconfig %s\n", kubeconfigPath, kubeconfigPath) // todo find solution to use kubectl os.setenv kubeconfig
+		err := setKubeconfigEnvVar(kubeconfigPath)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Spawn a new shell or do e.g.: '$ source ~/.zshrc' to use the new kubeconfig\n")
 	} else {
 		cmd := exec.Command(toolName, "--kubeconfig", kubeconfigPath)
 		cmd.Stdin = os.Stdin
@@ -196,4 +211,55 @@ func SetContext(context string, kubeconfigPath string) error {
 	cmd.Stderr = os.Stderr
 
 	return cmd.Run()
+}
+
+func setKubeconfigEnvVar(kubeconfigPath string) error {
+	var shellConfigPath string
+
+	switch shell := filepath.Base(os.Getenv("SHELL")); shell {
+	case "bash":
+		shellConfigPath = filepath.Join(os.Getenv("HOME"), ".bashrc")
+	case "zsh":
+		shellConfigPath = filepath.Join(os.Getenv("HOME"), ".zshrc")
+	case "powershell":
+		shellConfigPath = filepath.Join(os.Getenv("HOME"), "Documents", "WindowsPowerShell", "Microsoft.PowerShell_profile.ps1")
+	default:
+		return fmt.Errorf("unsupported shell: %s", shell)
+	}
+
+	// Check if the shell config file exists
+	_, err := os.Stat(shellConfigPath)
+	if err != nil {
+		return fmt.Errorf("shell config file not found: %v", err)
+	}
+
+	// Open the shell config file
+	file, err := os.OpenFile(shellConfigPath, os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("error opening shell config file: %v", err)
+	}
+	defer func(file *os.File) {
+		_ = file.Close()
+	}(file)
+
+	// Read the file line by line and update the KUBECONFIG variable if it exists
+	scanner := bufio.NewScanner(file)
+	updated := false
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.Contains(line, "export KUBECONFIG=") {
+			updated = true
+			fmt.Println("Updating existing KUBECONFIG definition")
+			line = fmt.Sprintf("export KUBECONFIG=%s", kubeconfigPath)
+		}
+		_, _ = fmt.Fprintln(file, line)
+	}
+
+	// Add a new KUBECONFIG definition if it does not exist
+	if !updated {
+		fmt.Println("Adding new KUBECONFIG definition")
+		_, _ = fmt.Fprintf(file, "export KUBECONFIG=%s\n", kubeconfigPath)
+	}
+
+	return nil
 }
